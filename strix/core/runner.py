@@ -15,8 +15,8 @@ from agents.sandbox import SandboxRunConfig
 from strix.agents.factory import build_strix_agent, make_child_factory
 from strix.config import load_settings
 from strix.config.models import (
+    StrixProvider,
     configure_sdk_model_defaults,
-    normalize_model_name,
     uses_chat_completions_tool_schema,
 )
 from strix.core.agents import AgentCoordinator
@@ -90,7 +90,7 @@ async def run_strix_scan(
 
     settings = load_settings()
     configure_sdk_model_defaults(settings)
-    resolved_model = normalize_model_name(model or settings.llm.model or "")
+    resolved_model = (model or settings.llm.model or "").strip()
     if not resolved_model:
         raise RuntimeError(
             "No LLM model configured. Set STRIX_LLM env or pass model= to run_strix_scan().",
@@ -153,9 +153,13 @@ async def run_strix_scan(
         is_whitebox = any(t.get("type") == "local_code" for t in targets)
         skills = list(scan_config.get("skills") or [])
         root_task = build_root_task(scan_config)
-        model_settings = make_model_settings(settings.llm.reasoning_effort)
+        model_settings = make_model_settings(
+            settings.llm.reasoning_effort,
+            model_name=resolved_model,
+        )
         run_config = RunConfig(
             model=resolved_model,
+            model_provider=StrixProvider(),
             model_settings=model_settings,
             sandbox=SandboxRunConfig(client=bundle["client"], session=bundle["session"]),
             trace_include_sensitive_data=False,
